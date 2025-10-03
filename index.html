@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Gravity Simulator Setup</title>
+</head>
+<body>
+  <h1>Gravity Simulator Setup</h1>
+
+  <!-- Global simulation parameters -->
+  <h3>Simulation Settings</h3>
+  <label>t_max: <input type="number" step="any" id="tMax" value="10000"></label>
+  <label>dt: <input type="number" step="any" id="dt" value="10"></label>
+  <br>
+  <label>Max X: <input type="number" step="any" id="maxX" value="1e12"></label>
+  <label>Max Y: <input type="number" step="any" id="maxY" value="1e12"></label>
+  <label>Max Z: <input type="number" step="any" id="maxZ" value="1e12"></label>
+  <br>
+  <label>Max Velocity: <input type="number" step="any" id="maxVel" value="1e5"></label>
+  <label>Max Density: <input type="number" step="any" id="maxDensity" value="1e6"></label>
+
+  <!-- Bodies -->
+  <h3>Bodies</h3>
+  <button id="newBodyBtn">New Body</button>
+  <button id="editBodiesBtn">Edit Bodies</button>
+  <form id="bodyForm" style="display:none; margin-top:10px;">
+    <label>X: <input type="number" step="any" name="x" required></label>
+    <label>Y: <input type="number" step="any" name="y" required></label>
+    <label>Z: <input type="number" step="any" name="z" required></label>
+    <br>
+    <label>VX: <input type="number" step="any" name="vx" required></label>
+    <label>VY: <input type="number" step="any" name="vy" required></label>
+    <label>VZ: <input type="number" step="any" name="vz" required></label>
+    <br>
+    <label>Mass: <input type="number" step="any" name="mass" required></label>
+    <label>Radius: <input type="number" step="any" name="radius" required></label>
+    <br>
+    <button type="submit">Save Body</button>
+  </form>
+
+  <ul id="bodiesList"></ul>
+
+  <!-- Import/Export -->
+  <h3>Import/Export</h3>
+  <button id="exportBtn">Export JSON</button>
+  <input type="file" id="importFile" accept=".json">
+
+  <script>
+    const newBodyBtn = document.getElementById('newBodyBtn');
+    const editBodiesBtn = document.getElementById('editBodiesBtn');
+    const form = document.getElementById('bodyForm');
+    const list = document.getElementById('bodiesList');
+    const exportBtn = document.getElementById('exportBtn');
+    const importFile = document.getElementById('importFile');
+    const bodies = [];
+    let bodyCounter = 0;
+    let editMode = false;
+    let editingId = null;
+
+    // Show form for new body
+    newBodyBtn.addEventListener('click', () => {
+      form.reset();
+      editingId = null; // ensure new body mode
+      form.style.display = 'block';
+    });
+
+    // Toggle edit mode
+    editBodiesBtn.addEventListener('click', () => {
+      editMode = !editMode;
+      renderBodies();
+      editBodiesBtn.textContent = editMode ? "Done Editing" : "Edit Bodies";
+    });
+
+    // Save or update body
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(form).entries());
+      if (editingId !== null) {
+        // update existing
+        const body = bodies.find(b => b.id === editingId);
+        body.position = { x: +data.x, y: +data.y, z: +data.z };
+        body.velocity = { x: +data.vx, y: +data.vy, z: +data.vz };
+        body.mass = +data.mass;
+        body.radius = +data.radius;
+      } else {
+        // new body
+        const body = {
+          id: bodyCounter++,
+          position: { x: +data.x, y: +data.y, z: +data.z },
+          velocity: { x: +data.vx, y: +data.vy, z: +data.vz },
+          mass: +data.mass,
+          radius: +data.radius
+        };
+        bodies.push(body);
+      }
+      renderBodies();
+      form.reset();
+      form.style.display = 'none';
+      editingId = null;
+    });
+
+    function renderBodies() {
+      list.innerHTML = '';
+      bodies.forEach(body => {
+        const li = document.createElement('li');
+        li.textContent = JSON.stringify(body);
+        if (editMode) {
+          const editBtn = document.createElement('button');
+          editBtn.textContent = "Edit";
+          editBtn.onclick = () => {
+            editingId = body.id;
+            form.style.display = 'block';
+            form.elements.x.value = body.position.x;
+            form.elements.y.value = body.position.y;
+            form.elements.z.value = body.position.z;
+            form.elements.vx.value = body.velocity.x;
+            form.elements.vy.value = body.velocity.y;
+            form.elements.vz.value = body.velocity.z;
+            form.elements.mass.value = body.mass;
+            form.elements.radius.value = body.radius;
+          };
+          const delBtn = document.createElement('button');
+          delBtn.textContent = "Delete";
+          delBtn.onclick = () => {
+            const idx = bodies.findIndex(b => b.id === body.id);
+            if (idx >= 0) bodies.splice(idx, 1);
+            renderBodies();
+          };
+          li.appendChild(editBtn);
+          li.appendChild(delBtn);
+        }
+        list.appendChild(li);
+      });
+    }
+
+    // Export JSON
+    exportBtn.addEventListener('click', () => {
+      const sim = {
+        bodies: bodies,
+        simulation: {
+          t_max: +document.getElementById('tMax').value,
+          dt: +document.getElementById('dt').value,
+          bounds: {
+            x: +document.getElementById('maxX').value,
+            y: +document.getElementById('maxY').value,
+            z: +document.getElementById('maxZ').value
+          },
+          max_velocity: +document.getElementById('maxVel').value,
+          max_density: +document.getElementById('maxDensity').value
+        }
+      };
+      const blob = new Blob([JSON.stringify(sim, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = "simulation.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // Import JSON
+    importFile.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = event => {
+        const json = JSON.parse(event.target.result);
+        bodies.length = 0;
+        bodyCounter = 0;
+        editingId = null;
+        json.bodies.forEach(b => {
+          b.id = bodyCounter++;
+          bodies.push(b);
+        });
+        document.getElementById('tMax').value = json.simulation.t_max;
+        document.getElementById('dt').value = json.simulation.dt;
+        document.getElementById('maxX').value = json.simulation.bounds.x;
+        document.getElementById('maxY').value = json.simulation.bounds.y;
+        document.getElementById('maxZ').value = json.simulation.bounds.z;
+        document.getElementById('maxVel').value = json.simulation.max_velocity;
+        document.getElementById('maxDensity').value = json.simulation.max_density;
+        renderBodies();
+      };
+      reader.readAsText(file);
+    });
+  </script>
+</body>
+</html>

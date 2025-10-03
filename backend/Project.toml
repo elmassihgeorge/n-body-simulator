@@ -1,0 +1,10 @@
+name = "n_body_backend"
+uuid = "c3f2b7e2-9d4a-4f1a-8e2a-1b2f3c4d5e6f"
+authors = ["Your Name <you@example.com>"]
+
+[deps]
+HTTP = "cd3eb016-3f3f-5f6b-8f00-7b4a5b27a3a6"
+JSON3 = "0f141b9c-9033-5b3e-8c03-9f5b8c1d2a3b"
+
+[compat]
+julia = ">=1.6"
